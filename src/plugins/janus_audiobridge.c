@@ -6396,6 +6396,7 @@ void janus_audiobridge_incoming_data(janus_plugin_session *handle, janus_plugin_
 	janus_audiobridge_room *audiobridge = participant->room;
 	if(!audiobridge)
 		return;
+	JANUS_LOG(LOG_VERB, "Got a binary DataChannel message to broadcast (%"SCNu16" bytes)\n", packet->length);
 	/* Broadcast to all other participants in the room */
 	janus_mutex_lock(&audiobridge->mutex);
 	GHashTableIter iter;
@@ -6403,7 +6404,7 @@ void janus_audiobridge_incoming_data(janus_plugin_session *handle, janus_plugin_
 	g_hash_table_iter_init(&iter, audiobridge->participants);
 	while(g_hash_table_iter_next(&iter, NULL, &value)) {
 		janus_audiobridge_participant *p = (janus_audiobridge_participant *)value;
-		if(p == participant || !p->session || g_atomic_int_get(&p->session->destroyed))
+		if(p == participant || p->plainrtp || !p->session || !p->session->handle || g_atomic_int_get(&p->session->destroyed))
 			continue;
 		janus_plugin_data data = {
 			.label = NULL,
