@@ -57,6 +57,7 @@ RUN git clone --depth 1 https://github.com/libnice/libnice.git && \
 RUN git clone --depth 1 --branch v2.7.0 https://github.com/cisco/libsrtp.git && \
     cd libsrtp && \
     ./configure --prefix=/usr/local CFLAGS="-O2" \
+      --disable-dependency-tracking \
       --disable-pcap \
       --enable-openssl && \
     make -j$(nproc) shared_library && \
@@ -67,6 +68,7 @@ RUN git clone --depth 1 https://github.com/sctplab/usrsctp.git && \
     cd usrsctp && \
     ./bootstrap && \
     ./configure --prefix=/usr/local CFLAGS="-O2" \
+      --disable-dependency-tracking \
       --disable-debug \
       --disable-inet \
       --disable-inet6 \
@@ -102,6 +104,7 @@ WORKDIR /tmp/build/janus-gateway
 
 RUN ./autogen.sh && \
     ./configure --prefix=/usr/local \
+      --disable-dependency-tracking \
       --disable-docs \
       --enable-post-processing \
       --enable-plugin-lua \
