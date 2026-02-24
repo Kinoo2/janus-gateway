@@ -29,7 +29,8 @@ aws ecr get-login-password --region "${AWS_REGION}" | \
 # Build
 echo ""
 echo "Building Docker image..."
-docker build -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" \
+docker build --platform linux/amd64 \
+             -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" \
              -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest" \
              .
 
