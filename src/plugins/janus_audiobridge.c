@@ -1272,6 +1272,7 @@ void janus_audiobridge_setup_media(janus_plugin_session *handle);
 void janus_audiobridge_incoming_rtp(janus_plugin_session *handle, janus_plugin_rtp *packet);
 void janus_audiobridge_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rtcp *packet);
 void janus_audiobridge_incoming_data(janus_plugin_session *handle, janus_plugin_data *packet);
+void janus_audiobridge_data_ready(janus_plugin_session *handle);
 void janus_audiobridge_hangup_media(janus_plugin_session *handle);
 void janus_audiobridge_destroy_session(janus_plugin_session *handle, int *error);
 json_t *janus_audiobridge_query_session(janus_plugin_session *handle);
@@ -1297,6 +1298,7 @@ static janus_plugin janus_audiobridge_plugin =
 		.incoming_rtp = janus_audiobridge_incoming_rtp,
 		.incoming_rtcp = janus_audiobridge_incoming_rtcp,
 		.incoming_data = janus_audiobridge_incoming_data,
+		.data_ready = janus_audiobridge_data_ready,
 		.hangup_media = janus_audiobridge_hangup_media,
 		.destroy_session = janus_audiobridge_destroy_session,
 		.query_session = janus_audiobridge_query_session,
@@ -1578,6 +1580,7 @@ typedef struct janus_audiobridge_session {
 	gboolean plugin_offer;
 	gpointer participant;
 	volatile gint started;
+	volatile gint dataready;
 	volatile gint hangingup;
 	volatile gint destroyed;
 	janus_refcount ref;
@@ -6404,7 +6407,8 @@ void janus_audiobridge_incoming_data(janus_plugin_session *handle, janus_plugin_
 	g_hash_table_iter_init(&iter, audiobridge->participants);
 	while(g_hash_table_iter_next(&iter, NULL, &value)) {
 		janus_audiobridge_participant *p = (janus_audiobridge_participant *)value;
-		if(p == participant || p->plainrtp || !p->session || !p->session->handle || g_atomic_int_get(&p->session->destroyed))
+		if(p == participant || p->plainrtp || !p->session || !p->session->handle ||
+				!g_atomic_int_get(&p->session->dataready) || g_atomic_int_get(&p->session->destroyed))
 			continue;
 		janus_plugin_data data = {
 			.label = NULL,
@@ -6416,6 +6420,18 @@ void janus_audiobridge_incoming_data(janus_plugin_session *handle, janus_plugin_
 		gateway->relay_data(p->session->handle, &data);
 	}
 	janus_mutex_unlock(&audiobridge->mutex);
+}
+
+void janus_audiobridge_data_ready(janus_plugin_session *handle) {
+	if(handle == NULL || g_atomic_int_get(&handle->stopped) ||
+			g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized) || !gateway)
+		return;
+	janus_audiobridge_session *session = (janus_audiobridge_session *)handle->plugin_handle;
+	if(!session || g_atomic_int_get(&session->destroyed))
+		return;
+	if(g_atomic_int_compare_and_exchange(&session->dataready, 0, 1)) {
+		JANUS_LOG(LOG_INFO, "[%s-%p] Data channel available\n", JANUS_AUDIOBRIDGE_PACKAGE, handle);
+	}
 }
 
 static void janus_audiobridge_recorder_create(janus_audiobridge_participant *participant) {
@@ -6478,6 +6494,7 @@ static void janus_audiobridge_hangup_media_internal(janus_plugin_session *handle
 		return;
 	}
 	g_atomic_int_set(&session->started, 0);
+	g_atomic_int_set(&session->dataready, 0);
 	if(session->participant == NULL)
 		return;
 	if(!g_atomic_int_compare_and_exchange(&session->hangingup, 0, 1))
