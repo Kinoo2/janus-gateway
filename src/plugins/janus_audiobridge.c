@@ -8280,7 +8280,7 @@ static void *janus_audiobridge_handler(void *data) {
 			janus_sdp *offer = NULL, *answer = NULL;
 			if(got_offer) {
 				answer = janus_sdp_generate_answer(sdp);
-				/* Only accept the first audio line, and reject everything else if offered */
+				/* Accept the first audio line and any data channel lines */
 				GList *temp = sdp->m_lines;
 				gboolean accepted = FALSE;
 				while(temp) {
@@ -8292,6 +8292,11 @@ static void *janus_audiobridge_handler(void *data) {
 							JANUS_SDP_OA_CODEC, janus_audiocodec_name(participant->codec),
 							JANUS_SDP_OA_ACCEPT_EXTMAP, JANUS_RTP_EXTMAP_MID,
 							JANUS_SDP_OA_ACCEPT_EXTMAP, JANUS_RTP_EXTMAP_AUDIO_LEVEL,
+							JANUS_SDP_OA_DONE);
+					} else if(m->type == JANUS_SDP_APPLICATION) {
+						janus_sdp_generate_answer_mline(sdp, answer, m,
+							JANUS_SDP_OA_MLINE, JANUS_SDP_APPLICATION,
+							JANUS_SDP_OA_ACCEPT_EXTMAP, JANUS_RTP_EXTMAP_MID,
 							JANUS_SDP_OA_DONE);
 					}
 					temp = temp->next;
